@@ -1,186 +1,262 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ResumeForm } from '@/components/ResumeForm'
-import { ResumePreview } from '@/components/ResumePreview'
 import { Header } from '@/components/Header'
-import { ProgressIndicator } from '@/components/ProgressIndicator'
-import { FloatingActionButton } from '@/components/FloatingActionButton'
+import { StepSidebar } from '@/components/StepSidebar'
+import { PreviewPanel } from '@/components/PreviewPanel'
+import { ResumePreview } from '@/components/ResumePreview'
 import { ResumeData } from '@/types/resume'
+import { Download } from 'lucide-react'
 
 export default function Home() {
-  const [resumeData, setResumeData] = useState<ResumeData>({
+  const getEmptyResumeData = (): ResumeData => ({
     personalInfo: {
-      fullName: 'John Smith',
-      email: 'john.smith@email.com',
-      phone: '+1 (555) 123-4567',
-      location: 'San Francisco, CA',
-      linkedin: 'https://linkedin.com/in/johnsmith',
-      website: 'https://johnsmith.dev',
-      summary: 'Experienced software engineer with 5+ years of experience in full-stack development. Passionate about creating scalable web applications and leading development teams.'
+      fullName: '',
+      email: '',
+      phone: '',
+      location: '',
+      linkedin: '',
+      website: '',
+      summary: ''
     },
-    experience: [
-      {
-        id: '1',
-        company: 'TechCorp Solutions',
-        position: 'Senior Software Engineer',
-        location: 'San Francisco, CA',
-        startDate: '2022-01',
-        endDate: '',
-        current: true,
-        description: 'Led development of scalable web applications using React and Node.js. Managed a team of 5 developers and implemented CI/CD pipelines.',
-        achievements: [
-          'Increased application performance by 40% through code optimization',
-          'Led migration to microservices architecture',
-          'Mentored 3 junior developers'
-        ]
-      }
-    ],
-    education: [
-      {
-        id: '1',
-        institution: 'University of California',
-        degree: 'Bachelor of Science',
-        field: 'Computer Science',
-        location: 'Berkeley, CA',
-        startDate: '2018-09',
-        endDate: '2022-05',
-        current: false,
-        gpa: '3.8',
-        achievements: [
-          'Magna Cum Laude',
-          'Dean\'s List for 4 semesters'
-        ]
-      }
-    ],
-    skills: ['JavaScript', 'React', 'Node.js', 'TypeScript', 'Python', 'AWS', 'Leadership'],
-    projects: [
-      {
-        id: '1',
-        name: 'E-commerce Platform',
-        description: 'Full-stack e-commerce platform with React frontend and Node.js backend',
-        technologies: ['React', 'Node.js', 'MongoDB', 'Stripe'],
-        url: 'https://ecommerce-demo.com',
-        github: 'https://github.com/johnsmith/ecommerce',
-        startDate: '2023-01',
-        endDate: '2023-06',
-        current: false
-      }
-    ],
-    certifications: [
-      {
-        id: '1',
-        name: 'AWS Certified Solutions Architect',
-        issuer: 'Amazon Web Services',
-        date: '2023-03',
-        url: 'https://aws.amazon.com/certification/'
-      }
-    ]
+    experience: [],
+    education: [],
+    skills: [],
+    projects: [],
+    certifications: []
   })
 
-  const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form')
+  const [resumeData, setResumeData] = useState<ResumeData>(getEmptyResumeData())
+  const [activeSection, setActiveSection] = useState('personal')
+  const [isPreviewCollapsed, setIsPreviewCollapsed] = useState(true)
+  const [showFullPreview, setShowFullPreview] = useState(false)
+  const [resumeTitle, setResumeTitle] = useState('My Resume')
 
-  const handlePreview = () => {
-    setActiveTab('preview')
+  // Load saved draft on component mount, unless fresh start is requested
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const urlParams = new URLSearchParams(window.location.search)
+        const freshStart = urlParams.get('fresh') === 'true'
+        
+        if (freshStart) {
+          // Clear any saved data and start fresh
+          localStorage.removeItem('resumeDraft')
+          setResumeData(getEmptyResumeData())
+          setResumeTitle('My Resume')
+          setActiveSection('personal')
+          // Remove the fresh parameter from URL
+          window.history.replaceState({}, '', window.location.pathname)
+        } else {
+          // Load saved draft if available
+          const savedDraft = localStorage.getItem('resumeDraft')
+          if (savedDraft) {
+            try {
+              const parsedData = JSON.parse(savedDraft)
+              setResumeData(parsedData)
+            } catch (error) {
+              console.error('Error loading saved draft:', error)
+              // If there's an error parsing, start fresh
+              setResumeData(getEmptyResumeData())
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error in useEffect:', error)
+        setResumeData(getEmptyResumeData())
+      }
+    }
+  }, [])
+
+  const handleDownload = async () => {
+    console.log('Download button clicked')
+    // Find the resume element and generate PDF directly
+    if (typeof window !== 'undefined') {
+      const resumeElement = document.querySelector('[data-resume-content]') as HTMLElement
+      console.log('Resume element found:', resumeElement)
+      if (resumeElement) {
+        try {
+          const { generatePDF } = await import('@/utils/pdfGenerator')
+          console.log('Starting PDF generation...')
+          await generatePDF(resumeElement, 'resume.pdf')
+          console.log('PDF generated successfully')
+        } catch (error) {
+          console.error('Failed to generate PDF:', error)
+          alert('Failed to generate PDF. Please try again.')
+        }
+      } else {
+        console.error('Resume element not found')
+        alert('Resume content not found. Please try again.')
+      }
+    }
   }
 
-  const handleDownload = () => {
-    // Switch to preview tab first, then trigger download
-    setActiveTab('preview')
-    // The actual download will be triggered by the ResumePreview component
-    setTimeout(() => {
-      const downloadButton = document.querySelector('[data-download-button]') as HTMLButtonElement
-      if (downloadButton) {
-        downloadButton.click()
-      }
-    }, 100)
+  const handlePreviewClick = () => {
+    console.log('Preview button clicked')
+    setShowFullPreview(true)
+  }
+
+  const handleCloseFullPreview = () => {
+    setShowFullPreview(false)
   }
 
   const handleSaveDraft = () => {
+    console.log('Save draft button clicked')
     // Save current resume data to localStorage
-    localStorage.setItem('resumeDraft', JSON.stringify(resumeData))
-    alert('Draft saved successfully!')
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('resumeDraft', JSON.stringify(resumeData))
+        console.log('Draft saved successfully')
+        alert('Draft saved successfully!')
+      } catch (error) {
+        console.error('Failed to save draft:', error)
+        alert('Failed to save draft. Please try again.')
+      }
+    }
   }
 
   const handleShareResume = () => {
     // Generate a shareable link or copy to clipboard
-    const shareData = {
-      title: 'My Resume',
-      text: 'Check out my resume built with Resume Builder',
-      url: window.location.href
+    if (typeof window !== 'undefined') {
+      const shareData = {
+        title: 'My Resume',
+        text: 'Check out my resume built with Resume Builder',
+        url: window.location.href
+      }
+      
+      if (navigator.share) {
+        navigator.share(shareData).catch(console.error)
+      } else {
+        // Fallback: copy URL to clipboard
+        navigator.clipboard.writeText(window.location.href)
+          .then(() => alert('Resume link copied to clipboard!'))
+          .catch(() => alert('Failed to copy link. Please try again.'))
+      }
     }
-    
-    if (navigator.share) {
-      navigator.share(shareData)
-    } else {
-      // Fallback: copy URL to clipboard
-      navigator.clipboard.writeText(window.location.href)
-      alert('Resume link copied to clipboard!')
+  }
+
+  const handleClearAll = () => {
+    console.log('Clear all button clicked')
+    if (typeof window !== 'undefined' && window.confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+      setResumeData(getEmptyResumeData())
+      setResumeTitle('My Resume')
+      setActiveSection('personal')
+      // Clear any saved drafts
+      try {
+        localStorage.removeItem('resumeDraft')
+        console.log('All data cleared successfully')
+        alert('All data has been cleared!')
+      } catch (error) {
+        console.error('Failed to clear saved draft:', error)
+        alert('All data has been cleared!')
+      }
+    }
+  }
+
+  const handleFreshStart = () => {
+    // Redirect to fresh start URL
+    if (typeof window !== 'undefined') {
+      window.location.href = window.location.pathname + '?fresh=true'
     }
   }
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      {/* Background Pattern */}
+      <div className="fixed inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%236366f1%22%20fill-opacity%3D%220.03%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%221%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-40"></div>
+      
       <Header 
-        onPreview={handlePreview}
         onDownload={handleDownload}
-      />
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto space-y-4">
-          {/* Tab Navigation */}
-          <div className="flex justify-center">
-            <div className="flex space-x-1 bg-white p-1 rounded-lg shadow-soft border border-gray-200 w-full max-w-md">
-              <button
-                onClick={() => setActiveTab('form')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex-1 ${
-                  activeTab === 'form'
-                    ? 'bg-primary-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Build Resume
-              </button>
-              <button
-                onClick={() => setActiveTab('preview')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 flex-1 ${
-                  activeTab === 'preview'
-                    ? 'bg-primary-600 text-white shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                Preview & Download
-              </button>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="flex justify-center">
-            <div className="w-full max-w-md">
-              <ProgressIndicator data={resumeData} />
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="w-full">
-            {activeTab === 'form' ? (
-              <div className="max-w-5xl mx-auto">
-                <ResumeForm data={resumeData} setData={setResumeData} onPreview={handlePreview} />
-              </div>
-            ) : (
-              <div className="max-w-6xl mx-auto">
-                <ResumePreview data={resumeData} />
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-
-      {/* Floating Action Button */}
-      <FloatingActionButton 
         onSave={handleSaveDraft}
         onShare={handleShareResume}
+        onClearAll={handleClearAll}
+        onNewResume={handleFreshStart}
+        onPreview={handlePreviewClick}
+        resumeTitle={resumeTitle}
+        onTitleChange={setResumeTitle}
       />
+      
+      <div className="relative h-[calc(100vh-4rem)]">
+        {/* Main Content Area - Only Form Editor */}
+        <div className="overflow-y-auto h-full">
+          <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+            {/* Title Section - Smaller */}
+            <div className="mb-6">
+              <div className="card-compact">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-bold text-slate-900">Resume Title</h2>
+                  <div className="text-xs text-slate-500">Step 1 of 6</div>
+                </div>
+                <div className="max-w-sm">
+                  <input
+                    type="text"
+                    value={resumeTitle}
+                    onChange={(e) => setResumeTitle(e.target.value)}
+                    className="input-field text-base font-semibold"
+                    placeholder="Enter your resume title"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    💡 Give your resume a descriptive title
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Progress Section - Below title on all screen sizes */}
+            <div className="mb-6">
+              <StepSidebar 
+                activeSection={activeSection}
+                onSectionChange={setActiveSection}
+                data={resumeData}
+                isMobile={true}
+              />
+            </div>
+
+            {/* Form Sections */}
+            <ResumeForm 
+              data={resumeData} 
+              setData={setResumeData} 
+              activeSection={activeSection}
+              onSectionChange={setActiveSection}
+              onViewFinalResume={handlePreviewClick}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Full Page Preview Modal */}
+      {showFullPreview && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Preview Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h3 className="text-xl font-bold text-slate-900">Resume Preview</h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleDownload}
+                  className="btn-primary flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>Download PDF</span>
+                </button>
+                <button
+                  onClick={handleCloseFullPreview}
+                  className="btn-ghost flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg"
+                >
+                  <span>Close</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Preview Content */}
+            <div className="overflow-y-auto max-h-[calc(90vh-5rem)] p-6">
+              <ResumePreview data={resumeData} onDownload={handleDownload} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
