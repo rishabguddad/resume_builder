@@ -1,15 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost'],
-  },
-  turbopack: {
-    rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**',
       },
-    },
+    ],
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
